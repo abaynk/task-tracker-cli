@@ -2,18 +2,38 @@
 import { promises } from "fs";
 const { readFile, writeFile } = promises;
 import { exit } from "node:process";
-import { statuses, commands, TASKS_FILE } from "./constants.js";
+import { statuses, TASKS_FILE } from "./constants.js";
+
+const readTasks = async () => {
+  try {
+    const data = await readFile(TASKS_FILE, "utf8");
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      const emptyTasks = [];
+      await writeFile(TASKS_FILE, JSON.stringify(emptyTasks, null, 2));
+      return emptyTasks;
+    }
+    throw error;
+  }
+};
+
+const writeTasks = async (tasksList) => {
+  await writeFile(TASKS_FILE, JSON.stringify(tasksList, null, 2));
+};
 
 export const listTasks = async (status) => {
   try {
-    const data = await readFile(TASKS_FILE, "utf8");
-    const tasksList = JSON.parse(data);
-    let filteredList = [...tasksList];
+    const tasksList = await readTasks();
 
-    if (!tasksList || !tasksList.length) {
-      console.error("No tasks found! Please create one:)");
+    if (!tasksList || tasksList.length === 0) {
+      console.log(
+        'No tasks found! Please create one with: task-cli add "Your task"',
+      );
       exit();
     }
+
+    let filteredList = [...tasksList];
 
     if (status) {
       if (statuses.includes(status)) {
@@ -23,6 +43,7 @@ export const listTasks = async (status) => {
         exit();
       }
     }
+
     console.log(
       status ? `Tasks in status ${status}:` : "All tasks:",
       filteredList.map(
@@ -31,15 +52,14 @@ export const listTasks = async (status) => {
     );
     exit();
   } catch (error) {
-    console.error("Couldn't retrieve tasks! Please try again:)");
+    console.error("Couldn't retrieve tasks! Please try again:)", error);
     exit();
   }
 };
 
 export const addTask = async (description) => {
   try {
-    const data = await readFile(TASKS_FILE, "utf8");
-    const tasksList = JSON.parse(data);
+    const tasksList = await readTasks();
     const id =
       tasksList.length === 0 ? 1 : tasksList[tasksList.length - 1].id + 1;
 
@@ -53,7 +73,7 @@ export const addTask = async (description) => {
 
     tasksList.push(newTaskObj);
 
-    await writeFile(TASKS_FILE, JSON.stringify(tasksList, null, 2));
+    await writeTasks(tasksList);
     console.log(`Task added successfully (ID: ${newTaskObj.id})`);
   } catch (error) {
     console.error("Couldn't add task! Please try again!", error);
@@ -63,14 +83,13 @@ export const addTask = async (description) => {
 
 export const deleteTask = async (taskId) => {
   try {
-    const data = await readFile(TASKS_FILE, "utf8");
-    const tasksList = JSON.parse(data);
+    const tasksList = await readTasks();
 
     const updatedTasksList = tasksList.filter(
       (task) => task.id !== Number(taskId),
     );
 
-    await writeFile(TASKS_FILE, JSON.stringify(updatedTasksList, null, 2));
+    await writeTasks(updatedTasksList);
     console.log(`Task deleted successfully (ID: ${taskId})`);
   } catch (error) {
     console.error("Couldn't find this task! Please try again!", error);
@@ -80,8 +99,7 @@ export const deleteTask = async (taskId) => {
 
 export const updateTask = async (taskId, newDescription) => {
   try {
-    const data = await readFile(TASKS_FILE, "utf8");
-    const tasksList = JSON.parse(data);
+    const tasksList = await readTasks();
 
     const taskIndex = tasksList.findIndex((task) => task.id === Number(taskId));
 
@@ -96,7 +114,7 @@ export const updateTask = async (taskId, newDescription) => {
       updatedAt: new Date(),
     };
 
-    await writeFile(TASKS_FILE, JSON.stringify(updatedTasksList, null, 2));
+    await writeTasks(tasksList);
     console.log(`Task updated successfully (ID: ${taskId})`);
   } catch (error) {
     console.error("Couldn't find this task! Please try again!", error);
@@ -106,8 +124,7 @@ export const updateTask = async (taskId, newDescription) => {
 
 export const updateTaskStatus = async (taskId, newStatus) => {
   try {
-    const data = await readFile(TASKS_FILE, "utf8");
-    const tasksList = JSON.parse(data);
+    const tasksList = await readTasks();
 
     const taskIndex = tasksList.findIndex((task) => task.id === Number(taskId));
 
@@ -122,7 +139,7 @@ export const updateTaskStatus = async (taskId, newStatus) => {
       updatedAt: new Date(),
     };
 
-    await writeFile(TASKS_FILE, JSON.stringify(tasksList, null, 2));
+    await writeTasks(tasksList);
     console.log(`Task status updated successfully to ${newStatus}`);
   } catch (error) {
     console.error("Couldn't find this task! Please try again!", error);
