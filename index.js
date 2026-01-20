@@ -1,47 +1,42 @@
 #!/usr/bin/env node
-
-const { readFile } = require("fs");
-const { argv, exit } = require("node:process");
-
-const commands = [
-  "add",
-  "update",
-  "delete",
-  "mark-in-progress",
-  "mark-done",
-  "list",
-];
-
-const statuses = ["done", "todo", "in-progress"];
+import { argv, exit } from "node:process";
+import {
+  addTask,
+  deleteTask,
+  listTasks,
+  markDone,
+  markInProgress,
+  updateTask,
+} from "./commands.js";
+import { commands } from "./constants.js";
 
 const command = argv[2];
 const arg1 = argv[3];
 const arg2 = argv[4];
 
-if (!commands.includes(command)) {
-  console.error("Unknown command! Pease try again!");
+const handleError = (errorMessage) => {
+  console.error(errorMessage);
   exit();
-}
+};
 
-if (command === "list") {
-  readFile("./index.json", "utf8", (err, data) => {
-    if (err) throw err;
-    const tasksList = JSON.parse(data).tasks;
-    if (!tasksList || !tasksList.length) {
-      console.error("No tasks found! Please create one:)");
-      exit();
-    }
-    if (arg1) {
-      if (statuses.includes(arg1)) {
-        const filteredList = tasksList.filter((task) => task.status === arg1);
-        console.log(`Tasks in status ${arg1}:`, filteredList);
-        exit();
-      } else {
-        console.error("Incorrect status! Please try again:)");
-        exit();
-      }
-    }
-    console.log("All tasks:", tasksList);
-    exit();
-  });
+const commandHandlers = {
+  list: () => listTasks(arg1),
+  add: () => (arg1 ? addTask(arg1) : handleError("Missing description")),
+  delete: () => (arg1 ? deleteTask(arg1) : handleError("Missing task ID")),
+  update: () =>
+    arg1
+      ? arg2
+        ? updateTask(arg1)
+        : handleError("Missing description")
+      : handleError("Missing task ID"),
+  "mark-in-progress": () =>
+    arg1 ? markInProgress(arg1) : handleError("Missing task ID"),
+  "mark-done": () => (arg1 ? markDone(arg1) : handleError("Missing task ID")),
+};
+
+if (commands.includes(command)) {
+  await commandHandlers[command]();
+} else {
+  console.error("Unknown command! Please try again!");
+  exit();
 }
